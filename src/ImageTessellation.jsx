@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
-import Delaunator from 'delaunator';
+import { useRef, useState } from 'react';
+import { getNeighbors, Graph} from './bbfs.js';
 
-function ImageTessellation()  {
+function ImageTessellation() {
     const [imageUrl, setImageUrl] = useState('');
-    const canvasRef = React.useRef(null);
-    const [passabilityMatrix, setPassabilityMatrix] = useState([]);
+    const canvasRef = useRef(null);
+    const [startPoint, setStartPoint] = useState(null);
+    const [endPoint, setEndPoint] = useState(null);
+    const [squares, setSquares] = useState([]);
+    const cellSize = 40;
 
+
+    console.log(startPoint);
+    console.log(endPoint);
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
@@ -21,103 +27,143 @@ function ImageTessellation()  {
     const performTessellation = () => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
+        setStartPoint(null)
+        setEndPoint(null)
         const image = new Image();
-        const width = document.getElementById('width').value
-        const height = document.getElementById('height').value
+        const w = document.getElementById('width').value;
+        const h = document.getElementById('height').value;
 
         image.onload = function () {
-            canvas.width = width;
-            canvas.height = height;
+            canvas.width = image.width;
+            canvas.height = image.height;
             ctx.drawImage(image, 0, 0);
 
-            // const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const points = [];
-
-            // заполняю точки
-            for (let y = 0; y < canvas.height; y += 15) {
-                for (let x = 0; x < canvas.width; x += 15) {
-                    points.push([x, y]);
-                }
-            }
-            //точка в треугольнике
-            function isPointInTriangle(px, py, p0, p1, p2) {
-                const dX = px - p2[0];
-                const dY = py - p2[1];
-                const dX21 = p2[0] - p1[0];
-                const dY12 = p1[1] - p2[1];
-                const d = dY12 * (p0[0] - p2[0]) + dX21 * (p0[1] - p2[1]);
-                const s = dY12 * dX + dX21 * dY;
-                const t = (p2[1] - p0[1]) * dX + (p0[0] - p2[0]) * dY;
-
-                if (d < 0) return s <= 0 && t <= 0 && s + t >= d;
-                return s >= 0 && t >= 0 && s + t <= d;
-            }
-            const triangulation = Delaunator.from(points);
-            const triangles = triangulation.triangles;
-            console.log(triangles)
-
-            // рисую сетку
-            ctx.strokeStyle = 'red';
-            ctx.beginPath();
-            for (let i = 0; i < triangles.length; i += 3) {
-
-                const p1 = points[triangles[i]];
-                const p2 = points[triangles[i + 1]];
-                const p3 = points[triangles[i + 2]];
-
-                ctx.moveTo(p1[0], p1[1]);
-                ctx.lineTo(p2[0], p2[1]);
-                ctx.lineTo(p3[0], p3[1]);
-                ctx.lineTo(p1[0], p1[1]);
-                ctx.stroke()
-
-                const trianglePassability = [];
-
-                for (let y = 0; y < canvas.height; y += 20) {
-                    for (let x = 0; x < canvas.width; x += 20) {
-                        // Проверка проходимости пикселя внутри треугольника
-                        if (isPointInTriangle(x, y, p1, p2, p3)) {
-                            const pixelData = ctx.getImageData(x, y, 1, 1).data;
-
-                            // Пример: Проверка на черный цвет (0, 0, 0) как непроходимость
-                            const isPassable = !(pixelData[0] === 0 && pixelData[1] === 0 && pixelData[2] === 0);
-                            trianglePassability.push((isPassable) ? 1 : 0);
-                        }
-                    }
-                }
-                passabilityMatrix.push(trianglePassability);
-            }
-            setPassabilityMatrix(passabilityMatrix);
-            console.log(passabilityMatrix)
-
-        }
+            setSquares(generateSquares(w, h));
+        };
         image.src = imageUrl;
-    }
+    };
+
+    const handleCanvasClick = (e) => {
+        const rect = e.target.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const clickedPoint = { x, y };
+
+        // Находим квадрат, который содержит выбранную точку
+        const clickedSquare = findSquareContainingPoint(clickedPoint);
+
+        if (clickedSquare) {
+            // Проверяем, является ли выбранный квадрат начальной или конечной точкой
+            if (!startPoint) {
+                setStartPoint(clickedSquare);
+            } else if (!endPoint) {
+                setEndPoint(clickedSquare);
+            }
+        }
+    };
+
+    const findSquareContainingPoint = (point) => {
+        // Ищем квадрат, содержащий точку
+        for (const square of squares) {
+            const { x, y, size } = square;
+            if (point.x >= x && point.x <= x + size && point.y >= y && point.y <= y + size) {
+                return square;
+            }
+        }
+
+        return null;
+    };
+
+    const generateSquares = (width, height) => {
+        const squares = [];
+        let id = 0;
+
+        for (let x = 0; x < width; x += cellSize) {
+            for (let y = 0; y < height; y += cellSize) {
+                const size = cellSize;
+                const passability = Math.floor(Math.random() * 5) + 1;
+
+                id += 1;
+                squares.push({ id, x, y, size, passability, neighbors: [] });
+
+            }
+        }
+        // Заполняем массив соседей для каждого квадрата
+        squares.forEach((square) => {
+            square.neighbors = getNeighbors(squares, square);
+        });
+        console.log(squares);
+
+        drawSquares(canvasRef.current.getContext('2d'), squares);
+
+        return squares;
+    };
+
+    const drawSquares = (ctx, squares) => {
+        ctx.font = '12px Arial';
+        ctx.fillStyle = 'black';
+
+        squares.forEach((square, index) => {
+            const { x, y, size, passability } = square;
+
+            ctx.beginPath();
+            ctx.rect(x, y, size, size);
+            ctx.stroke();
+
+            ctx.fillText(passability.toString(), x + size / 2, y + size / 2);
+        });
+    };
+
+    const drawPath = (ctx, path, cells) => {
+        ctx.beginPath();
+        ctx.strokeStyle = 'blue';
+        ctx.lineWidth = 3;
+
+        if (Array.isArray(cells)) {
+            for (let i = 0; i < path.length; i++) {
+                const cellId = path[i];
+                const cell = cells.find(cell => cell.id === cellId);
+                if (cell) {
+                    ctx.lineTo(cell.x + cellSize / 2, cell.y + cellSize / 2);
+                }
+            }
+        } else {
+            console.error("Cells is not an array or is undefined");
+        }
+
+        ctx.stroke();
+    };
+
+
+
+    const handleFindPath = () => {
+        // Создаем объект графа с помощью существующего массива объектов squares
+        const graph = new Graph(squares);
+
+        // Вызываем двунаправленный поиск пути, передавая начальную и конечную точки
+        const path = graph.biDirSearch(startPoint.id, endPoint.id);
+        console.log('pt', path)
+
+        if (path) {
+            // Если путь найден, отрисовываем его на холсте
+            drawPath(canvasRef.current.getContext('2d'), path,squares);
+        } else {
+            // Если путь не найден, выводим сообщение об этом
+            alert('Путь не найден');
+        }
+    };
 
     return (
         <div>
             <input type="file" accept="image/*" onChange={handleImageChange} />
-            <button onClick={performTessellation}>Треугольная тесселяция</button>
-            <canvas ref={canvasRef}/>
-            <p> Ширина: <input type="text" id = 'width' /> </p>
-            <p> Высота: <input type="text" id = 'height' /> </p>
-
-            {/*<h3>Матрица проходимости:</h3>*/}
-            {/*<table>*/}
-            {/*    <tbody>*/}
-            {/*    {passabilityMatrix.map((row, rowIndex) => (*/}
-            {/*        <tr key={rowIndex}>*/}
-            {/*            {row.map((cell, cellIndex) => (*/}
-            {/*                <td key={cellIndex}>{cell}</td>*/}
-            {/*            ))}*/}
-            {/*        </tr>*/}
-            {/*    ))}*/}
-            {/*    </tbody>*/}
-            {/*</table>*/}
-
+            <button onClick={performTessellation}>Тесселяция</button>
+            <button onClick={handleFindPath}>Поиск пути</button>
+            <canvas ref={canvasRef} onClick={handleCanvasClick} />
+            <p> Ширина: <input type="text" id="width" /> </p>
+            <p> Высота: <input type="text" id="height" /> </p>
         </div>
-    )
-
+    );
 }
 
 export default ImageTessellation;
