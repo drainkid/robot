@@ -7,7 +7,7 @@ function ImageTessellation() {
     const [startPoint, setStartPoint] = useState(null);
     const [endPoint, setEndPoint] = useState(null);
     const [squares, setSquares] = useState([]);
-    const cellSize = 40;
+    const cellSize = 25;
 
 
     console.log(startPoint);
@@ -82,7 +82,8 @@ function ImageTessellation() {
         for (let x = 0; x < width; x += cellSize) {
             for (let y = 0; y < height; y += cellSize) {
                 const size = cellSize;
-                const passability = Math.floor(Math.random() * 5) + 1;
+                const passabilityColor = getColorAtPosition(x + size / 2, y + size / 2);
+                const passability = calculatePassabilityFromColor(passabilityColor);
 
                 id += 1;
                 squares.push({ id, x, y, size, passability, neighbors: [] });
@@ -100,6 +101,33 @@ function ImageTessellation() {
         return squares;
     };
 
+    const getColorAtPosition = (x, y) => {
+        const ctx = canvasRef.current.getContext('2d');
+        const pixelData = ctx.getImageData(x, y, 1, 1).data;
+        return `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
+    };
+
+    const calculatePassabilityFromColor = (color) => {
+        // Разбиваем строку цвета и извлекаем значения красного, зеленого и синего каналов
+        const [red, green, blue] = color.match(/\d+/g).map(Number);
+
+        // Пример логики для определения проходимости в зависимости от значений каналов цвета
+        if (red === 255 && green === 255 && blue === 255) {
+            // Если цвет белый (255, 255, 255), проходимость 1
+            return 1;
+        } else if (red === 224 && green === 223 && blue === 223) {
+            // Если цвет светло-серый (224, 223, 223), проходимость 3
+            return 3;
+        } else if (red === 241 && green === 239 && blue === 234) {
+            // Если цвет какой-то другой (241, 239, 234), проходимость 2
+            return 2;
+        } else {
+            // В остальных случаях проходимость по умолчанию
+            return 1;
+        }
+    };
+
+
     const drawSquares = (ctx, squares) => {
         ctx.font = '12px Arial';
         ctx.fillStyle = 'black';
@@ -113,6 +141,7 @@ function ImageTessellation() {
 
             ctx.fillText(passability.toString(), x + size / 2, y + size / 2);
         });
+
     };
 
     const drawPath = (ctx, path, cells) => {
