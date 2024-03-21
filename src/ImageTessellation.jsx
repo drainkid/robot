@@ -179,6 +179,18 @@ function ImageTessellation() {
         ctx.stroke();
     };
 
+    const drawVisited = (graph) => {
+        const ctx = canvasRef.current.getContext('2d');
+        for (const [visited, fill] of [[graph.visited_s, 'rgba(80,0,255,.2)'], [graph.visited_t, 'rgba(255,80,0,.2)']]) {
+            ctx.fillStyle = fill
+            for (let i = 0; i < graph.V; ++i) {
+                if (!visited[i])
+                    continue
+                ctx.fillRect(graph.squares[i].x, graph.squares[i].y, cellSize, cellSize);
+            }
+        }
+    };
+
 
 
     const handleFindPath = () => {
@@ -188,6 +200,7 @@ function ImageTessellation() {
         // Вызываем двунаправленный поиск пути, передавая начальную и конечную точки
         const path = graph.biDirSearch(startPoint.id, endPoint.id);
         console.log('pt', path)
+        drawVisited(graph);
 
         if (path) {
             // Если путь найден, отрисовываем его на холсте

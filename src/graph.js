@@ -70,6 +70,8 @@ export class Graph {
         while (i !== s) {
             path.push(i);
             i = this.findCheapestNeighbor(i, this.dist_s);
+            if (i == null)
+                return null
         }
         path.push(s);
         path.reverse();
@@ -77,6 +79,8 @@ export class Graph {
         while (i !== t) {
             path.push(i);
             i = this.findCheapestNeighbor(i, this.dist_t);
+            if (i == null)
+                return null
         }
         path.push(t);
         return path;
@@ -86,14 +90,15 @@ export class Graph {
     biDirSearch(s, t) {
         this.dist_s[s] = 0;
         this.dist_t[t] = 0;
+        if (this.squares[s].passability >= 99 || this.squares[t].passability >= 99)
+            return null;
 
         // Continue BFS until an intersection is found or both searches are exhausted.
         const intersect = this.pathfind()
         if (intersect != null) {
             console.log(`Intersection found at node: ${intersect}`);
-            console.log(s, t, this)
             const path = this.printPath(s, t, intersect);
-            console.log("Path:", path.join(' '));
+            console.log("Path:", path?.join(' '));
             return path;
         }
         console.log(this)
