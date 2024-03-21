@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { getNeighbors, Graph} from './bbfs.js';
+import { getNeighbors, Graph} from './graph.js';
 
 function ImageTessellation() {
     const [imageUrl, setImageUrl] = useState('');
@@ -8,7 +8,6 @@ function ImageTessellation() {
     const [endPoint, setEndPoint] = useState(null);
     const [squares, setSquares] = useState([]);
     const cellSize = 25;
-
 
     console.log(startPoint);
     console.log(endPoint);
@@ -55,9 +54,14 @@ function ImageTessellation() {
 
         if (clickedSquare) {
             // Проверяем, является ли выбранный квадрат начальной или конечной точкой
+            const ctx = canvasRef.current.getContext('2d');
             if (!startPoint) {
+                ctx.fillStyle = 'rgba(0,0,255,.5)'
+                ctx.fillRect(clickedSquare.x, clickedSquare.y, cellSize, cellSize)
                 setStartPoint(clickedSquare);
             } else if (!endPoint) {
+                ctx.fillStyle = 'rgba(255,0,0,.5)'
+                ctx.fillRect(clickedSquare.x, clickedSquare.y, cellSize, cellSize)
                 setEndPoint(clickedSquare);
             }
         }
@@ -82,12 +86,18 @@ function ImageTessellation() {
         for (let x = 0; x < width; x += cellSize) {
             for (let y = 0; y < height; y += cellSize) {
                 const size = cellSize;
-                const passabilityColor = getColorAtPosition(x + size / 2, y + size / 2);
+                const colors = [];
+                const AN = 1 / 8;
+                const OFFSET = [[AN, AN], [AN, 1/2],[AN, 1-AN], [1/2, 1/2], [1/2, AN], [1/2, 1-AN], [1-AN, AN], [1-AN, 1/2], [1-AN, 1-AN]]
+                for (const [xOff, yOff] of OFFSET) {
+                    const col = getColorAtPosition(x + xOff * cellSize, y + yOff * cellSize);
+                    colors.push(col.match(/\d+/g).map(Number))
+                }
+                const passability = calculatePassabilityFromColors(colors)
                 // const passability = Math.round(Math.random() * 5);
-                const passability = calculatePassabilityFromColor(passabilityColor)
 
-                id += 1;
                 squares.push({ id, x, y, size, passability, neighbors: [] });
+                id += 1;
 
             }
         }
@@ -109,40 +119,43 @@ function ImageTessellation() {
     };
 
 
-    const calculatePassabilityFromColor = (color) => {
-        // Разбиваем строку цвета и извлекаем значения красного, зеленого и синего каналов
-        const [red, green, blue] = color.match(/\d+/g).map(Number);
+    const calculatePassabilityFromColors = (colors) => {
+        const whitePixels = colors.filter(c => c.every(c => c > 250))
+        if (whitePixels.length >= 3)
+            return 1;
 
-        if (red === 255 && green === 255 && blue === 255) {
+        const avgColor = colors.reduce((acc, col) => acc.map((a, i) => a + col[i] / colors.length), [0, 0, 0])
+        const [red, green, blue] = avgColor
+        if (red > 250 && green > 250 && blue > 250) {
             // Если цвет белый (255, 255, 255), проходимость 1
             return 1;
-        } else if (red === 224 && green === 223 && blue === 223) {
-            // Если цвет светло-серый (224, 223, 223), проходимость 3
-            return 3;
-        } else if (red === 241 && green === 239 && blue === 234) {
+        } else if (red > 230 && green > 230 && blue > 230) {
             // Если цвет какой-то другой (241, 239, 234), проходимость 2
-            return 2;
-        } else if (red === 215 && green === 208 && blue === 202) {
-                return 4;
+            return 5;
+        } else if (red > 210 && green > 210 && blue > 210) {
+            // Если цвет светло-серый (224, 223, 223), проходимость 3
+            return 9;
         } else {
             // В остальных случаях проходимость по умолчанию
-            return 1;
+            return 99;
         }
     };
 
 
     const drawSquares = (ctx, squares) => {
-        ctx.font = '12px Arial';
+        ctx.font = '9px Arial';
         ctx.fillStyle = 'black';
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'right'
 
-        squares.forEach((square, index) => {
+        squares.forEach((square) => {
             const { x, y, size, passability } = square;
 
             ctx.beginPath();
             ctx.rect(x, y, size, size);
             ctx.stroke();
 
-            ctx.fillText(passability.toString(), x + size / 2, y + size / 2);
+            ctx.fillText(passability.toString(), x - 4 + cellSize, y + 3);
         });
     };
 
