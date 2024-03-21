@@ -83,7 +83,8 @@ function ImageTessellation() {
             for (let y = 0; y < height; y += cellSize) {
                 const size = cellSize;
                 const passabilityColor = getColorAtPosition(x + size / 2, y + size / 2);
-                const passability = calculatePassabilityFromColor(passabilityColor);
+                // const passability = Math.round(Math.random() * 5);
+                const passability = calculatePassabilityFromColor(passabilityColor)
 
                 id += 1;
                 squares.push({ id, x, y, size, passability, neighbors: [] });
@@ -107,11 +108,11 @@ function ImageTessellation() {
         return `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
     };
 
+
     const calculatePassabilityFromColor = (color) => {
         // Разбиваем строку цвета и извлекаем значения красного, зеленого и синего каналов
         const [red, green, blue] = color.match(/\d+/g).map(Number);
 
-        // Пример логики для определения проходимости в зависимости от значений каналов цвета
         if (red === 255 && green === 255 && blue === 255) {
             // Если цвет белый (255, 255, 255), проходимость 1
             return 1;
@@ -121,6 +122,8 @@ function ImageTessellation() {
         } else if (red === 241 && green === 239 && blue === 234) {
             // Если цвет какой-то другой (241, 239, 234), проходимость 2
             return 2;
+        } else if (red === 215 && green === 208 && blue === 202) {
+                return 4;
         } else {
             // В остальных случаях проходимость по умолчанию
             return 1;
@@ -141,7 +144,6 @@ function ImageTessellation() {
 
             ctx.fillText(passability.toString(), x + size / 2, y + size / 2);
         });
-
     };
 
     const drawPath = (ctx, path, cells) => {
